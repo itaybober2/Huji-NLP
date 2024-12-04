@@ -144,10 +144,33 @@ def MLP_classification(portion=1., model=None):
     test_loader = DataLoader(test_dataset, batch_size=batch_size, shuffle=False)
 
     # Sub-task 4: Train model
-    train_model(model, criterion, optimizer, train_loader)
+    train_losses = train_model(model, criterion, optimizer, train_loader)
 
     # Sub-task 5: Evaluate model
-    evaluate_model(model, test_loader)
+    accuracy = evaluate_model(model, test_loader)
+
+    # Plotting training loss and validation accuracy
+    epochs = range(1, 21)
+    plt.figure(figsize=(12, 5))
+
+    # Plot training loss
+    plt.subplot(1, 2, 1)
+    plt.plot(epochs, train_losses, label='Training Loss')
+    plt.xlabel('Epochs')
+    plt.ylabel('Loss')
+    plt.title(f'Training Loss for Portion {portion}')
+    plt.legend()
+
+    # Plot validation accuracy
+    plt.subplot(1, 2, 2)
+    plt.plot(epochs, [accuracy] * len(epochs), label='Validation Accuracy')
+    plt.xlabel('Epochs')
+    plt.ylabel('Accuracy')
+    plt.title(f'Validation Accuracy for Portion {portion}')
+    plt.legend()
+
+    plt.tight_layout()
+    plt.show()
 
     return
 
@@ -296,14 +319,14 @@ def transformer_classification(portion=1.):
 if __name__ == "__main__":
     portions = [0.1, 0.2, 0.5, 1.]
     # Q1 - single layer MLP
-    # for portion in portions:
-    #     print(f"Running log-linear classifier with portion {portion}")
-    #     MLP_classification(portion=portion)
+    for portion in portions:
+        print(f"Running log-linear classifier with portion {portion}")
+        MLP_classification(portion=portion)
 
     # Q2 - multi-layer MLP
-    for portion in portions:
-        print(f"Running MLP classifier with hidden layer and portion {portion}")
-        MLP_hidden_layer_classification(portion=portion)
+    # for portion in portions:
+    #     print(f"Running MLP classifier with hidden layer and portion {portion}")
+    #     MLP_hidden_layer_classification(portion=portion)
 
     # Q3 - Transformer
     # print("\nTransformer results:")
