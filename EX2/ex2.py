@@ -8,6 +8,9 @@ import numpy as np
 from sklearn.feature_extraction.text import TfidfVectorizer
 import torch
 from torch.utils.data import TensorDataset, DataLoader
+import matplotlib.pyplot as plt
+import torch.nn as nn
+import torch.optim as optim
 
 # subset of categories that we will use
 category_dict = {'comp.graphics': 'computer graphics',
@@ -112,7 +115,7 @@ def evaluate_model(model, test_loader):
     return accuracy
 
 
-# Q1,2
+# Q1
 def MLP_classification(portion=1., model=None):
     """
     Perform linear classification
@@ -147,6 +150,71 @@ def MLP_classification(portion=1., model=None):
     evaluate_model(model, test_loader)
 
     return
+
+
+# Q2
+def MLP_hidden_layer_classification(portion=1.0):
+
+    def define_mlp_model(input_dim, output_dim):
+        model = nn.Sequential(
+            nn.Linear(input_dim, 500),
+            nn.ReLU(),
+            nn.Linear(500, output_dim)
+        )
+        criterion = nn.CrossEntropyLoss()
+        optimizer = optim.Adam(model.parameters(), lr=1e-3)
+        return model, criterion, optimizer
+
+    # Get the data
+    x_train, y_train, x_test, y_test = get_data(categories=category_dict.keys(), portion=portion)
+
+    # Sub-task 1: Vectorize data
+    x_train_tfidf, x_test_tfidf = vectorize_data(x_train, x_test)
+
+    # Sub-task 2: Convert data to tensors
+    x_train_tensor, y_train_tensor, x_test_tensor, y_test_tensor = convert_to_tensors(x_train_tfidf, y_train,
+                                                                                      x_test_tfidf, y_test)
+
+    # Sub-task 3: Define MLP model with hidden layer, loss, and optimizer
+    input_dim = x_train_tfidf.shape[1]
+    output_dim = len(category_dict)
+    model, criterion, optimizer = define_mlp_model(input_dim, output_dim)
+
+    # Create DataLoader for mini-batch training
+    batch_size = 16
+    train_dataset = TensorDataset(x_train_tensor, y_train_tensor)
+    test_dataset = TensorDataset(x_test_tensor, y_test_tensor)
+    train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
+    test_loader = DataLoader(test_dataset, batch_size=batch_size, shuffle=False)
+
+    # Sub-task 4: Train model and track loss
+    train_losses = train_model(model, criterion, optimizer, train_loader)
+
+    # Sub-task 5: Evaluate model and track accuracy
+    accuracy = evaluate_model(model, test_loader)
+
+    # Plotting training loss and validation accuracy
+    epochs = range(1, 21)
+    plt.figure(figsize=(12, 5))
+
+    # Plot training loss
+    plt.subplot(1, 2, 1)
+    plt.plot(epochs, train_losses, label='Training Loss')
+    plt.xlabel('Epochs')
+    plt.ylabel('Loss')
+    plt.title(f'Training Loss for Portion {portion}')
+    plt.legend()
+
+    # Plot validation accuracy
+    plt.subplot(1, 2, 2)
+    plt.plot(epochs, [accuracy] * len(epochs), label='Validation Accuracy')
+    plt.xlabel('Epochs')
+    plt.ylabel('Accuracy')
+    plt.title(f'Validation Accuracy for Portion {portion}')
+    plt.legend()
+
+    plt.tight_layout()
+    plt.show()
 
 
 # Q3
@@ -228,12 +296,14 @@ def transformer_classification(portion=1.):
 if __name__ == "__main__":
     portions = [0.1, 0.2, 0.5, 1.]
     # Q1 - single layer MLP
-    for portion in portions:
-        print(f"Running log-linear classifier with portion {portion}")
-        MLP_classification(portion=portion)
+    # for portion in portions:
+    #     print(f"Running log-linear classifier with portion {portion}")
+    #     MLP_classification(portion=portion)
 
     # Q2 - multi-layer MLP
-    # pass
+    for portion in portions:
+        print(f"Running MLP classifier with hidden layer and portion {portion}")
+        MLP_hidden_layer_classification(portion=portion)
 
     # Q3 - Transformer
     # print("\nTransformer results:")
