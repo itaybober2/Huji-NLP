@@ -1,6 +1,4 @@
-
-
-###################################################
+##################################################
 # Exercise 2 - Natural Language Processing 67658  #
 ###################################################
 
@@ -77,43 +75,80 @@ def define_model(input_dim, output_dim):
     optimizer = optim.Adam(model.parameters(), lr=1e-3)
     return model, criterion, optimizer
 
+def batch_train(criterion, model, optimizer, total_loss, x_batch, y_batch):
+    optimizer.zero_grad()
+    outputs = model(x_batch)
+    loss = criterion(outputs, y_batch)
+    loss.backward()
+    optimizer.step()
+    _, predicted = torch.max(outputs.data, 1)
+    total_loss += loss.item()
+    return total_loss
+
 
 # Sub-task 4: Train Model
-def train_model(model, criterion, optimizer, train_loader, epochs=20):
+def train_model(model, criterion, optimizer, train_loader, test_loader, epochs=20):
     train_losses = []
+    test_accuracies = []
     for epoch in range(epochs):
         model.train()
+
         total_loss = 0.0
-        for batch in train_loader:
-            x_batch, y_batch = batch
-            optimizer.zero_grad()
-            outputs = model(x_batch)
-            loss = criterion(outputs, y_batch)
-            loss.backward()
-            optimizer.step()
-            total_loss += loss.item()
+        total_correct = 0.0
+        total_samples = 0.0
+
+        for x_batch, y_batch in train_loader:
+            total_loss = batch_train(criterion, model, optimizer, total_loss, x_batch, y_batch)
         avg_loss = total_loss / len(train_loader)
         train_losses.append(avg_loss)
         print(f"Epoch {epoch + 1}/{epochs}, Loss: {avg_loss:.4f}")
-    return train_losses
+
+        test_accuracy = evaluate_model(model, test_loader)
+        test_accuracies.append(test_accuracy)
+        print(f"Log-Linear Classifier Accuracy: {test_accuracy:.4f}")
+    return train_losses, test_accuracies
 
 
 # Sub-task 5: Evaluate Model
 def evaluate_model(model, test_loader):
     model.eval()
-    correct = 0
-    total = 0
+    test_correct = 0
+    test_total = 0
     with torch.no_grad():
-        for batch in test_loader:
-            x_batch, y_batch = batch
+        for x_batch, y_batch in test_loader:
             outputs = model(x_batch)
             _, predicted = torch.max(outputs, 1)
-            total += y_batch.size(0)
-            correct += (predicted == y_batch).sum().item()
-    accuracy = correct / total
-    print(f"Log-Linear Classifier Accuracy: {accuracy:.4f}")
-    return accuracy
+            test_total += y_batch.size(0)
+            test_correct += (predicted == y_batch).sum().item()
+    test_accuracy = test_correct / test_total
+    return test_accuracy
 
+
+def plot_graphs(test_accuracies, portion, train_losses):
+    # Plotting training loss and validation accuracy
+    epochs = range(1, 21)
+    plt.figure(figsize=(12, 5))
+    # Plot training loss
+    plt.subplot(1, 2, 1)
+    plt.plot(epochs, train_losses, label='Training Loss')
+    plt.xlabel('Epochs')
+    plt.ylabel('Loss')
+    plt.title(f'Training Loss for Portion {portion}')
+    plt.xticks(np.arange(0, len(epochs), 1))
+    plt.legend()
+
+    # Plot validation accuracy
+    plt.subplot(1, 2, 2)
+    plt.plot(epochs, test_accuracies, label='Validation Accuracy')
+    plt.xlabel('Epochs')
+    plt.ylabel('Accuracy')
+    plt.title(f'Validation Accuracy for Portion {portion}')
+    plt.xticks(np.arange(0, len(epochs), 1))
+    plt.ylim(0.4, 1.0)
+    plt.legend()
+
+    plt.tight_layout()
+    plt.show()
 
 # Q1
 def MLP_classification(portion=1., model=None):
@@ -143,37 +178,11 @@ def MLP_classification(portion=1., model=None):
     train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
     test_loader = DataLoader(test_dataset, batch_size=batch_size, shuffle=False)
 
-    # Sub-task 4: Train model
-    train_losses = train_model(model, criterion, optimizer, train_loader)
+    # Sub-task 4: Train model and evaluate
+    train_losses, test_accuracies = train_model(model, criterion, optimizer, train_loader, test_loader)
 
-    # Sub-task 5: Evaluate model
-    accuracy = evaluate_model(model, test_loader)
-
-    # Plotting training loss and validation accuracy
-    epochs = range(1, 21)
-    plt.figure(figsize=(12, 5))
-
-    # Plot training loss
-    plt.subplot(1, 2, 1)
-    plt.plot(epochs, train_losses, label='Training Loss')
-    plt.xlabel('Epochs')
-    plt.ylabel('Loss')
-    plt.title(f'Training Loss for Portion {portion}')
-    plt.legend()
-
-    # Plot validation accuracy
-    plt.subplot(1, 2, 2)
-    plt.plot(epochs, [accuracy] * len(epochs), label='Validation Accuracy')
-    plt.xlabel('Epochs')
-    plt.ylabel('Accuracy')
-    plt.title(f'Validation Accuracy for Portion {portion}')
-    plt.legend()
-
-    plt.tight_layout()
-    plt.show()
-
+    plot_graphs(test_accuracies, portion, train_losses)
     return
-
 
 # Q2
 def MLP_hidden_layer_classification(portion=1.0):
@@ -211,33 +220,9 @@ def MLP_hidden_layer_classification(portion=1.0):
     test_loader = DataLoader(test_dataset, batch_size=batch_size, shuffle=False)
 
     # Sub-task 4: Train model and track loss
-    train_losses = train_model(model, criterion, optimizer, train_loader)
+    train_losses, test_accuracies = train_model(model, criterion, optimizer, train_loader, test_loader)
 
-    # Sub-task 5: Evaluate model and track accuracy
-    accuracy = evaluate_model(model, test_loader)
-
-    # Plotting training loss and validation accuracy
-    epochs = range(1, 21)
-    plt.figure(figsize=(12, 5))
-
-    # Plot training loss
-    plt.subplot(1, 2, 1)
-    plt.plot(epochs, train_losses, label='Training Loss')
-    plt.xlabel('Epochs')
-    plt.ylabel('Loss')
-    plt.title(f'Training Loss for Portion {portion}')
-    plt.legend()
-
-    # Plot validation accuracy
-    plt.subplot(1, 2, 2)
-    plt.plot(epochs, [accuracy] * len(epochs), label='Validation Accuracy')
-    plt.xlabel('Epochs')
-    plt.ylabel('Accuracy')
-    plt.title(f'Validation Accuracy for Portion {portion}')
-    plt.legend()
-
-    plt.tight_layout()
-    plt.show()
+    plot_graphs(test_accuracies, portion, train_losses)
 
 
 # Q3
@@ -324,9 +309,9 @@ if __name__ == "__main__":
         MLP_classification(portion=portion)
 
     # Q2 - multi-layer MLP
-    # for portion in portions:
-    #     print(f"Running MLP classifier with hidden layer and portion {portion}")
-    #     MLP_hidden_layer_classification(portion=portion)
+    for portion in portions:
+        print(f"Running MLP classifier with hidden layer and portion {portion}")
+        MLP_hidden_layer_classification(portion=portion)
 
     # Q3 - Transformer
     # print("\nTransformer results:")
