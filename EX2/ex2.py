@@ -32,7 +32,7 @@ def get_data(categories=None, portion=1.):
                                    random_state=21)
 
     # train
-    train_len = int(portion*len(data_train.data))
+    train_len = int(portion * len(data_train.data))
     x_train = np.array(data_train.data[:train_len])
     y_train = data_train.target[:train_len]
     # remove empty entries
@@ -45,6 +45,9 @@ def get_data(categories=None, portion=1.):
     non_empty = np.array(x_test) != ""
     x_test, y_test = x_test[non_empty].tolist(), y_test[non_empty].tolist()
     return x_train, y_train, x_test, y_test
+
+def count_trainable_parameters(model):
+    return sum(p.numel() for p in model.parameters() if p.requires_grad)
 
 
 # Sub-task 1: TFIDF Vectorization
@@ -74,6 +77,7 @@ def define_model(input_dim, output_dim):
     criterion = nn.CrossEntropyLoss()
     optimizer = optim.Adam(model.parameters(), lr=1e-3)
     return model, criterion, optimizer
+
 
 def batch_train(criterion, model, optimizer, total_loss, x_batch, y_batch):
     optimizer.zero_grad()
@@ -150,6 +154,7 @@ def plot_graphs(test_accuracies, portion, train_losses):
     plt.tight_layout()
     plt.show()
 
+
 # Q1
 def MLP_classification(portion=1., model=None):
     """
@@ -182,11 +187,12 @@ def MLP_classification(portion=1., model=None):
     train_losses, test_accuracies = train_model(model, criterion, optimizer, train_loader, test_loader)
 
     plot_graphs(test_accuracies, portion, train_losses)
+    print(f"Log-linear model parameters: {count_trainable_parameters(model)}")
     return
+
 
 # Q2
 def MLP_hidden_layer_classification(portion=1.0):
-
     def define_mlp_model(input_dim, output_dim):
         model = nn.Sequential(
             nn.Linear(input_dim, 500),
@@ -224,6 +230,9 @@ def MLP_hidden_layer_classification(portion=1.0):
 
     plot_graphs(test_accuracies, portion, train_losses)
 
+    print(f"MLP with hidden layer parameters: {count_trainable_parameters(model)}")
+
+
 
 # Q3
 def transformer_classification(portion=1.):
@@ -237,6 +246,7 @@ def transformer_classification(portion=1.):
         """
         Dataset for loading data
         """
+
         def __init__(self, encodings, labels):
             self.encodings = encodings
             self.labels = labels
@@ -252,30 +262,65 @@ def transformer_classification(portion=1.):
     def train_epoch(model, data_loader, optimizer, dev='cpu'):
         """
         Perform an epoch of training of the model with the optimizer
-        :param model:
-        :param data_loader:
-        :param optimizer:
-        :param dev:
+        :param model: Transformer model to be trained
+        :param data_loader: DataLoader for training data
+        :param optimizer: Optimizer (AdamW)
+        :param dev: Device to use for training (CPU or GPU)
         :return: Average loss over the epoch
         """
         model.train()
-        total_loss = 0.
+        total_loss = 0.0
         # iterate over batches
         for batch in tqdm(data_loader):
+            # Move batch to device
             input_ids = batch['input_ids'].to(dev)
             attention_mask = batch['attention_mask'].to(dev)
             labels = batch['labels'].to(dev)
-            ########### add your code here ###########
-        return
+
+            # Forward pass
+            outputs = model(input_ids=input_ids, attention_mask=attention_mask, labels=labels)
+            loss = outputs.loss
+
+            # Backward pass and optimization
+            optimizer.zero_grad()
+            loss.backward()
+            optimizer.step()
+
+            # Accumulate the loss
+            total_loss += loss.item()
+
+        # Calculate the average loss for the epoch
+        avg_loss = total_loss / len(data_loader)
+        return avg_loss
 
     def evaluate_model(model, data_loader, dev='cpu', metric=None):
+        """
+        Evaluate the model on the validation set
+        :param model: Transformer model to be evaluated
+        :param data_loader: DataLoader for validation data
+        :param dev: Device to use for evaluation (CPU or GPU)
+        :param metric: Evaluation metric (e.g., accuracy)
+        :return: Evaluation metric score
+        """
         model.eval()
         for batch in tqdm(data_loader):
+            # Move batch to device
             input_ids = batch['input_ids'].to(dev)
             attention_mask = batch['attention_mask'].to(dev)
             labels = batch['labels'].to(dev)
-            ########### add your code here ###########
-        return
+
+            # Forward pass (no gradient calculation needed)
+            with torch.no_grad():
+                outputs = model(input_ids=input_ids, attention_mask=attention_mask)
+                logits = outputs.logits
+
+            # Update metric with predictions and labels
+            predictions = torch.argmax(logits, dim=-1)
+            metric.add_batch(predictions=predictions, references=labels)
+
+        # Compute the final metric
+        final_score = metric.compute()
+        return final_score['accuracy']
 
     x_train, y_train, x_test, y_test = get_data(categories=category_dict.keys(), portion=portion)
 
@@ -297,7 +342,18 @@ def transformer_classification(portion=1.):
     train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
     val_loader = DataLoader(val_dataset, batch_size=batch_size)
 
-    ########### add your code here ###########
+    # Add training loop
+    optimizer = torch.optim.AdamW(model.parameters(), lr=learning_rate)
+    for epoch in range(epochs):
+        print(f"Epoch {epoch + 1}/{epochs}")
+        train_loss = train_epoch(model, train_loader, optimizer, dev=dev)
+        print(f"Average Training Loss: {train_loss:.4f}")
+
+        val_accuracy = evaluate_model(model, val_loader, dev=dev, metric=metric)
+        print(f"Validation Accuracy: {val_accuracy:.4f}")
+
+    print(f"Transformer model parameters: {count_trainable_parameters(model)}")
+
     return
 
 
@@ -314,7 +370,7 @@ if __name__ == "__main__":
         MLP_hidden_layer_classification(portion=portion)
 
     # Q3 - Transformer
-    # print("\nTransformer results:")
-    # for p in portions[:2]:
-    #     print(f"Portion: {p}")
-    #     transformer_classification(portion=p)
+    print("\nTransformer results:")
+    for p in portions[:2]:
+        print(f"Portion: {p}")
+        transformer_classification(portion=p)
