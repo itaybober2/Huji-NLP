@@ -20,9 +20,8 @@ category_dict = {'comp.graphics': 'computer graphics',
 
 def get_data(categories=None, portion=1.):
     """
-    Get data for given categories and portion
-    :param portion: portion of the data to use
-    :return:
+    Get data for given categories and portion.
+    :param portion: portion of the data to use.
     """
     # get data
     from sklearn.datasets import fetch_20newsgroups
@@ -98,8 +97,6 @@ def train_model(model, criterion, optimizer, train_loader, test_loader, epochs=2
         model.train()
 
         total_loss = 0.0
-        total_correct = 0.0
-        total_samples = 0.0
 
         for x_batch, y_batch in train_loader:
             total_loss = batch_train(criterion, model, optimizer, total_loss, x_batch, y_batch)
@@ -156,7 +153,7 @@ def plot_graphs(test_accuracies, portion, train_losses):
 
 
 # Q1
-def MLP_classification(portion=1., model=None):
+def MLP_classification(portion=1.):
     """
     Perform linear classification
     :param portion: portion of the data to use
